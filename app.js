@@ -5,13 +5,19 @@ const postModel = require("./models/post");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-
+require('dotenv').config();
 //middlware
 app.set("view engine", "ejs"); //setting engine to run ejs extension file
 app.use(express.json()); //setting)
 app.use(express.urlencoded({ extended: true })); //
 app.use(cookieParser());
+// -------------------------------
+const JWT_KEY = process.env.JWT_KEY;
+if (!JWT_KEY) {
+  throw new Error("JWT_KEY is not defined. Check your environment variables.");
+}
 
+console.log(JWT_KEY, "jj")
 app.get("/", (req, res) => {
   res.render("index");
 });
@@ -47,7 +53,7 @@ app.post("/register", async (req, res) => {
         // ],
       });
 
-      let token = jwt.sign({ email: email, userid: user._id }, "shh");
+      let token = jwt.sign({ email: email, userid: user._id }, JWT_KEY);
 
       res.cookie("token", token);
       res.render("registered");
@@ -69,7 +75,7 @@ app.post("/login", async (req, res) => {
     // Compare the provided password with the hashed password in the database
     const isMatch = await bcrypt.compare(password, user.password);
     if (isMatch) {
-      let token = jwt.sign({ email: email, userid: user._id }, "shh");
+      let token = jwt.sign({ email: email, userid: user._id }, JWT_KEY);
       res.cookie("token", token);
       // return res.status(200).send("You can login");
       return res.redirect("/profile")
@@ -97,7 +103,7 @@ function isLoggedIn(req, res, next) {
     }
 
     // Verify the token
-    const data = jwt.verify(token, "shh");
+    const data = jwt.verify(token, JWT_KEY);
     req.user = data; // Attach the decoded data to the request object
 
     next(); // Proceed to the next middleware or route handler
