@@ -26,9 +26,21 @@ app.get("/login", (req, res) => {
   res.render("login");
 });
 
-app.get("/profile", isLoggedIn, (req, res) => {
-  console.log(req.user);
-  res.send("welcome to the Our Website ,Thanks for login!");
+app.get("/profile", isLoggedIn, async (req, res) => {
+  try {
+    // Fetch user and populate posts
+    const user = await userModel.findOne({ email: req.user.email }).populate("posts");
+    
+    if (!user) {
+      return res.status(404).render("error", { message: "User not found" });
+    }
+
+    // Render the profile view with the user data
+    res.render("profile",{user} );
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).render("error", { message: "An error occurred while fetching the profile" });
+  }
 });
 
 app.post("/register", async (req, res) => {
@@ -78,7 +90,8 @@ app.post("/login", async (req, res) => {
       let token = jwt.sign({ email: email, userid: user._id }, JWT_KEY);
       res.cookie("token", token);
       // return res.status(200).send("You can login");
-      return res.redirect("/profile")
+      res.redirect("/profile")
+      return res.render("profile")
     } else {
       return res.status(401).send("Invalid email or password");
     }
@@ -112,6 +125,36 @@ function isLoggedIn(req, res, next) {
     return res.status(403).send("Invalid or expired token");
   }
 }
+
+app.post('/post', isLoggedIn, async (req, res) => {
+  try {
+    const user = await userModel.findOne({ email: req.user.email });
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const { content } = req.body;
+
+    if (!content || content.trim() === '') {
+      return res.status(400).send('Content cannot be empty');
+    }
+
+    const post = await postModel.create({
+      user: user._id,
+      content: content.trim(),
+    });
+
+    user.posts.push(post._id);
+    await user.save();
+
+    // Redirect to a more appropriate route
+    res.redirect('/profile'); // or wherever you'd like to show the user's posts
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('An error occurred while creating the post');
+  }
+});
+
 
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
